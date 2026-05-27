@@ -1,0 +1,916 @@
+[
+  {
+    "id": 1, "cat": "AWS Config", "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Cuándo usar AWS Config en lugar de EventBridge para compliance de recursos?",
+    "a": "AWS Config monitorea el estado ACTUAL de los recursos de forma continua. EventBridge solo reacciona a eventos puntuales — si alguien borra un tag después de crear el recurso, EventBridge no lo detecta. Para compliance ongoing → Config."
+  },
+  {
+    "id": 2, "cat": "AWS Config", "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Cómo alertar sobre una regla Config específica sin recibir todas las notificaciones de Config?",
+    "a": "Config conectado directo a SNS streama TODAS las notificaciones. Para alertas de una regla específica: Config → CloudWatch Events (filtra por regla y resultado NON_COMPLIANT) → SNS topic."
+  },
+  {
+    "id": 3, "cat": "AWS Config", "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Qué servicio ejecuta las remediation actions de AWS Config? ¿Puede usarse Lambda directamente?",
+    "a": "SSM Automation documents (runbooks). NO Lambda directamente. La remediation action se conecta a SSM Automation. Si el fix ya existe como managed runbook, no hay que crear uno custom."
+  },
+  {
+    "id": 4, "cat": "AWS Config", "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Qué regla managed de Config verificar tags en EBS volumes y cómo remediar automáticamente?",
+    "a": "Regla: required-tags con Resource Type AWS::EC2::Volume. Para remediar: SSM Automation custom runbook que aplica el tag con el valor correcto a todos los volúmenes non-compliant."
+  },
+  {
+    "id": 5, "cat": "AWS Config", "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Cada cuánto corre AWS Config sus evaluaciones? ¿Se puede programar con cron?",
+    "a": "No existe 'Config Cron job'. Config corre de forma continua y automática. Los dos triggers disponibles son: 1) Configuration changes (cuando el recurso cambia), 2) Periodic (cada 1, 3, 6, 12 o 24 horas). No se programa con cron externo."
+  },
+  {
+    "id": 6, "cat": "AWS Config", "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Cómo detectar compliance de AMIs en múltiples cuentas AWS y centralizar los resultados?",
+    "a": "AWS Config custom rule deployada en todas las cuentas vía CloudFormation StackSets + AWS Config Aggregator en la cuenta central para consolidar los resultados de compliance de todas las cuentas."
+  },
+  {
+    "id": 7, "cat": "CodeDeploy", "subdomain": "Domain 1: SDLC Automation",
+    "q": "¿Cuáles son los dos modos de rollback automático en CodeDeploy y cuándo usar cada uno?",
+    "a": "1) 'Roll back when deployment FAILS': rollback si el deployment falla directamente, no necesita Alarm. 2) 'Roll back when alarm thresholds are met': requiere asociar un CloudWatch Alarm al deployment group. Son configuraciones independientes."
+  },
+  {
+    "id": 8, "cat": "CodeDeploy", "subdomain": "Domain 1: SDLC Automation",
+    "q": "Un CodeDeploy Blue/Green falla en el lifecycle event AllowTraffic sin generar logs. ¿Cuál es la causa más probable?",
+    "a": "Health checks mal configurados en el ALB/NLB/CLB. Es la causa más común de fallos en AllowTraffic sin logs. Solución: revisar y corregir la configuración de health checks en el load balancer."
+  },
+  {
+    "id": 9, "cat": "CodeDeploy", "subdomain": "Domain 1: SDLC Automation",
+    "q": "¿Cuál es la diferencia entre Canary, Linear y AllAtOnce en CodeDeploy para Lambda?",
+    "a": "Canary: 2 incrementos (ej: LambdaCanary10Percent10Minutes = 10% por 10 min, luego 100%). Linear: incrementos iguales cada N minutos (ej: +10% cada 3 min). AllAtOnce: todo el tráfico a la vez. Para 'pequeño tráfico por X minutos luego todo' → Canary."
+  },
+  {
+    "id": 10, "cat": "CodeDeploy", "subdomain": "Domain 1: SDLC Automation",
+    "q": "¿Qué hook de appspec.yml (EC2) se usa para validar que el servicio funciona correctamente después del deploy?",
+    "a": "ValidateService — es el ÚLTIMO hook en EC2 deployments. AfterInstall sirve para configurar la app o cambiar permisos de archivos, no para testear salud. Si ValidateService falla y CodeDeploy tiene rollback habilitado, hace rollback automático."
+  },
+  {
+    "id": 11, "cat": "CodeDeploy", "subdomain": "Domain 1: SDLC Automation",
+    "q": "Durante un CodeDeploy rolling deployment en un ASG ocurre un scale-out. ¿Qué versión reciben las nuevas instancias?",
+    "a": "La ÚLTIMA versión deployada exitosamente (no la que está en curso). Resultado: instancias viejas y nuevas corren versiones distintas aunque CodeDeploy reporte éxito. Para evitarlo: suspender AZRebalance, AlarmNotification, ScheduledActions y ReplaceUnhealthy durante el deployment."
+  },
+  {
+    "id": 12, "cat": "CodeDeploy", "subdomain": "Domain 1: SDLC Automation",
+    "q": "¿Cuáles son los tres requisitos para que CodeDeploy pueda deployar en una instancia EC2?",
+    "a": "1) IAM Role con acceso al S3 bucket de artefactos (CodeDeploy no lee de CodeCommit directamente). 2) CodeDeploy Agent instalado manualmente en la instancia. 3) Tag en la instancia que la incluya en el deployment group correcto."
+  },
+  {
+    "id": 13, "cat": "CodeDeploy", "subdomain": "Domain 1: SDLC Automation",
+    "q": "¿Cómo enviar una notificación a Slack cuando un deployment de CodeDeploy falla?",
+    "a": "EventBridge rule que detecta el cambio de estado del deployment → Lambda → Slack webhook. CloudWatch Alarm NO puede enviar a Slack directamente. CloudWatch Event Rules tampoco tienen integración nativa con Slack."
+  },
+  {
+    "id": 14, "cat": "CloudWatch", "subdomain": "Domain 4: Monitoring and Logging",
+    "q": "¿Cuál es el flujo correcto para crear una alarma basada en patrones de texto en logs de CloudWatch?",
+    "a": "CW Logs → Metric Filter (define el patrón, ej: 'ERROR') → CloudWatch Metric (valor numérico) → CloudWatch Alarm (define el umbral) → SNS. El Metric Filter NO se conecta directamente al Alarm — primero crea la Metric, luego el Alarm va sobre esa Metric."
+  },
+  {
+    "id": 15, "cat": "CloudWatch", "subdomain": "Domain 4: Monitoring and Logging",
+    "q": "¿Cuánto tiempo retiene CloudWatch las métricas y cómo cumplir un requisito regulatorio de 7 años?",
+    "a": "CloudWatch retiene métricas máximo 15 meses. Para retención de años: CloudWatch Metric Streams → Kinesis Firehose → S3 (retención ilimitada) → Athena/QuickSight para análisis y visualización."
+  },
+  {
+    "id": 16, "cat": "CloudWatch", "subdomain": "Domain 4: Monitoring and Logging",
+    "q": "¿Cómo recibir una notificación SNS cuando se llama a una API específica de AWS (ej: DynamoDB DeleteTable) con mínimo costo?",
+    "a": "CloudTrail habilitado → CloudWatch Event rule: 'AWS API Call via CloudTrail' + filtro por el nombre de la API → SNS como target. No streamear todo CloudTrail a CW Logs solo para un evento (caro). DynamoDB Streams NO captura API calls como DeleteTable, solo eventos de ítems."
+  },
+  {
+    "id": 17, "cat": "CloudWatch", "subdomain": "Domain 4: Monitoring and Logging",
+    "q": "¿Cómo centralizar métricas, logs y trazas de múltiples cuentas AWS con onboarding automático de cuentas nuevas?",
+    "a": "CloudWatch cross-account observability con AWS Organizations. La cuenta de monitoreo se designa como central, las demás como source accounts. Con Organizations, las cuentas nuevas se onboardean automáticamente. Conectar cuentas individuales manualmente no escala."
+  },
+  {
+    "id": 18, "cat": "CloudWatch", "subdomain": "Domain 4: Monitoring and Logging",
+    "q": "¿Puede CloudWatch Alarm invocar una función Lambda directamente?",
+    "a": "No. CloudWatch Alarm no puede invocar Lambda directamente. Necesita SNS como intermediario. Flujo correcto: CW Alarm → SNS → Lambda. CloudWatch Alarm sí puede invocar directamente: EC2 actions, Auto Scaling actions, y SNS topics."
+  },
+  {
+    "id": 19, "cat": "CloudWatch", "subdomain": "Domain 4: Monitoring and Logging",
+    "q": "¿Puede CloudWatch Agent enviar logs directamente a un bucket S3?",
+    "a": "No. CloudWatch Agent escribe únicamente en CloudWatch Logs. Para enviar a S3 se necesita: una suscripción de CW Logs a Kinesis Firehose → S3, o una exportación manual/programática desde CW Logs a S3."
+  },
+  {
+    "id": 20, "cat": "Lambda", "subdomain": "Domain 3: Resilient Cloud Solutions",
+    "q": "¿Cuál es la diferencia entre Reserved Concurrency y Provisioned Concurrency en Lambda?",
+    "a": "Reserved: limita el máximo de instancias concurrentes, NO elimina cold starts. Provisioned: pre-inicializa instancias (elimina cold starts), tiene costo adicional. Para reducir latencia por cold starts en picos de tráfico → Provisioned Concurrency + Application Auto Scaling."
+  },
+  {
+    "id": 21, "cat": "Lambda", "subdomain": "Domain 3: Resilient Cloud Solutions",
+    "q": "¿Cuál es el timeout máximo de Lambda y qué alternativa usar cuando el proceso necesita más tiempo?",
+    "a": "Timeout máximo: 15 minutos. Para workflows que duran horas → Step Functions. Para exponer un workflow largo como API pública → API Gateway integrado directamente con Step Functions (no pasar por Lambda como intermediario, que tiene el límite de 1000 concurrent executions)."
+  },
+  {
+    "id": 22, "cat": "Lambda", "subdomain": "Domain 3: Resilient Cloud Solutions",
+    "q": "¿Por qué preferir API Gateway → Step Functions directo en lugar de API Gateway → Lambda → Step Functions para alta concurrencia?",
+    "a": "Lambda max concurrent executions: 1000. API Gateway max concurrent executions: 10000. Al agregar Lambda como intermediario, el límite de Lambda se convierte en el cuello de botella. API Gateway integrado directo con Step Functions bypasea ese límite."
+  },
+  {
+    "id": 23, "cat": "Step Functions", "subdomain": "Domain 5: Incident and Event Response",
+    "q": "¿En qué situaciones es preferible Step Functions sobre una Lambda function para orquestar un workflow?",
+    "a": "Usar Step Functions cuando: 1) múltiples pasos con lógica de retry/error, 2) se requiere auditoría de cada ejecución, 3) el proceso dura más de 15 minutos, 4) hay un paso de aprobación manual. Lambda con todo el código es difícil de debuggear y tiene timeout de 15 min."
+  },
+  {
+    "id": 24, "cat": "Step Functions", "subdomain": "Domain 5: Incident and Event Response",
+    "q": "¿Qué servicio AWS genera el evento AWS_RISK_CREDENTIALS_EXPOSED y cuál es el flujo de respuesta?",
+    "a": "AWS Health (NO CloudTrail). AWS monitorea repositorios públicos (GitHub) y genera el evento cuando detecta una IAM key expuesta. Flujo recomendado: AWS Health → CloudWatch Event → Step Functions workflow → desactiva credencial (IAM) + genera reporte (CloudTrail) + notifica (SNS)."
+  },
+  {
+    "id": 25, "cat": "CodePipeline", "subdomain": "Domain 1: SDLC Automation",
+    "q": "¿Qué 3 elementos son obligatorios para un CodePipeline cross-account (pipeline en cuenta A, deploy en cuenta B)?",
+    "a": "1) En cuenta A: KMS customer-managed key + bucket S3 con bucket policy que da acceso a cuenta B. 2) En cuenta B: cross-account IAM role que puede ser asumido por el service role de CodePipeline de cuenta A. 3) En cuenta B: service role para CloudFormation con los permisos necesarios. Versioning activado en el bucket de A."
+  },
+  {
+    "id": 26, "cat": "CodePipeline", "subdomain": "Domain 1: SDLC Automation",
+    "q": "¿Cómo extender un CodePipeline de una región a otra (ej: eu-west-1 → us-east-2)?",
+    "a": "Agregar un stage S3 al final del pipeline que copia los artefactos a un bucket en us-east-2. El pipeline en us-east-2 sourcea desde ese bucket S3. CodePipeline NO puede invocar otro pipeline directamente, no puede hacer push a CodeCommit, y CodeDeploy no puede deployar cross-region."
+  },
+  {
+    "id": 27, "cat": "CodePipeline", "subdomain": "Domain 1: SDLC Automation",
+    "q": "En un pipeline CI/CD con staging y producción, ¿en qué orden deben ir el deploy a staging y los tests automáticos?",
+    "a": "1) Deploy a staging (CodeDeploy). 2) CodeBuild corre los tests CONTRA el staging deployado. 3) Deploy a producción. NUNCA correr tests antes del deploy a staging — estás testeando código que aún no está deployado en el ambiente correcto."
+  },
+  {
+    "id": 28, "cat": "CodePipeline", "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "¿Qué significa InsufficientCapabilitiesException al deployar CloudFormation desde CodePipeline?",
+    "a": "El template CloudFormation contiene recursos IAM (roles, policies) y no se habilitó explícitamente esa capacidad. Solución: habilitar IAM Capability en la acción de CloudFormation dentro de CodePipeline. No es un problema de permisos del role — es una confirmación explícita requerida."
+  },
+  {
+    "id": 29, "cat": "CodeCommit", "subdomain": "Domain 1: SDLC Automation",
+    "q": "¿Cómo impedir que un grupo de developers haga push directo al branch master en CodeCommit?",
+    "a": "Crear una IAM policy con Deny explícito en codecommit:GitPush con condición sobre el branch master, attachada al IAM group de developers. 'Repository access policy' NO existe en CodeCommit. Un Deny explícito siempre tiene prioridad sobre cualquier Allow. No se puede modificar AWS managed policies."
+  },
+  {
+    "id": 30, "cat": "CodeCommit", "subdomain": "Domain 1: SDLC Automation",
+    "q": "¿Puede CodePipeline hacer push de commits a un repositorio CodeCommit?",
+    "a": "No. CodePipeline solo puede LEER (source) de CodeCommit, no puede escribir ni pushear commits. Para deployar a múltiples ambientes desde un solo repo → usar múltiples pipelines (uno por branch/ambiente) en lugar de intentar que un pipeline pushee a otro repo."
+  },
+  {
+    "id": 31, "cat": "CloudFormation", "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "Un stack CloudFormation quedó en UPDATE_ROLLBACK_FAILED. ¿Cuáles son los pasos para resolverlo?",
+    "a": "1) Ejecutar ContinueUpdateRollback → le indica a CFN que reintente el rollback. 2) Si el rollback sigue fallando → arreglar manualmente el recurso externo que causó el fallo (ej: recrear una DB eliminada fuera de CFN). Drift detection y aplicar el template original NO resuelven este estado."
+  },
+  {
+    "id": 32, "cat": "CloudFormation", "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "¿Soporta CloudFormation drift detection en custom resources?",
+    "a": "No. Drift detection solo funciona con resource types soportados oficialmente por CloudFormation. Custom resources (AWS::CloudFormation::CustomResource) no son soportados. El error NON_COMPLIANT en cloudformation-stack-drift-detection-check puede deberse a throttling en DetectStackDrift, no a permisos."
+  },
+  {
+    "id": 33, "cat": "CloudFormation", "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "Para una app stateful con 6 nodos (ej: Kafka) donde cada instancia necesita su propio EBS en su AZ, ¿cuál es el patrón CloudFormation correcto?",
+    "a": "6 nested templates, cada uno con 1 ASG (min=max=1) + 1 EBS volume taggeado. User Data script monta el EBS al arrancar. Un solo ASG de 6 instancias falla si una AZ cae — 3 instancias se moverían a otras AZs pero los EBS no pueden cruzar AZs."
+  },
+  {
+    "id": 34, "cat": "Elastic Beanstalk", "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "¿Por qué no se pueden enviar archivos grandes directamente a SQS en una arquitectura Elastic Beanstalk worker tier?",
+    "a": "SQS tiene un límite de tamaño de mensaje de 256KB. Para archivos grandes: web tier sube el archivo a S3 y envía solo la referencia (path S3) a SQS. Worker tier lee el mensaje SQS, obtiene la referencia y procesa el archivo desde S3."
+  },
+  {
+    "id": 35, "cat": "Elastic Beanstalk", "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "¿En qué tier de Elastic Beanstalk debe ubicarse el archivo cron.yml y qué hace?",
+    "a": "cron.yml va en el WORKER tier, no en el web tier. Define tareas programadas (cron jobs) que se ejecutan periódicamente. El web tier no soporta cron.yml. Si el cron.yml está en el web tier, será ignorado."
+  },
+  {
+    "id": 36, "cat": "Elastic Beanstalk", "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "¿Qué deployment strategy de Elastic Beanstalk usar si necesitás: app disponible, sin cambio de DNS y sin nuevos recursos permanentes?",
+    "a": "Rolling. Actualiza instancias en batches, mantiene el mismo ASG y DNS. Immutable: crea nuevas instancias temporales. Blue/Green: cambia CNAME/DNS. All-at-once: downtime. Rolling with additional batch: crea instancias temporales extra."
+  },
+  {
+    "id": 37, "cat": "Elastic Beanstalk", "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "¿Cómo implementar Blue/Green deployment en Elastic Beanstalk a través de CodePipeline?",
+    "a": "CodePipeline deploya a un nuevo ambiente Beanstalk (green). Luego un stage con Custom Job (Lambda) ejecuta la API SwapEnvironmentCNAMEs. CloudFormation NO soporta esta operación directamente — siempre requiere una Lambda custom."
+  },
+  {
+    "id": 38, "cat": "Elastic Beanstalk", "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "¿Cómo configurar el ALB de Elastic Beanstalk (ej: redirect HTTP→HTTPS) desde el código sin permisos directos en el ambiente?",
+    "a": "Crear .ebextensions/alb.config con un bloque option_settings para aws:elbv2:listener:default. Pushear el código y dejar que CodePipeline lo aplique. Cambios directos en la consola del ALB no persisten en Beanstalk. container_commands no es el bloque correcto para configuración de Beanstalk."
+  },
+  {
+    "id": 39, "cat": "Auto Scaling", "subdomain": "Domain 3: Resilient Cloud Solutions",
+    "q": "¿Por qué un ASG puede temporalmente superar su capacidad máxima configurada?",
+    "a": "Durante rebalanceo de AZs, ASG lanza instancias nuevas ANTES de terminar las viejas para no comprometer la disponibilidad. Puede superar el máximo en un 10% o 1 instancia (lo que sea mayor). Esta superación es temporal y solo ocurre cuando el ASG está cerca del máximo y necesita rebalancear."
+  },
+  {
+    "id": 40, "cat": "Auto Scaling", "subdomain": "Domain 3: Resilient Cloud Solutions",
+    "q": "Con Target Tracking scaling policy, ¿quién crea y gestiona los CloudWatch Alarms?",
+    "a": "AWS los crea y gestiona automáticamente. No debés crear, editar ni borrar los Alarms asociados a una Target Tracking policy — AWS lo hace solo. Si los creás manualmente, puede generar comportamiento inesperado. Solo con Step Scaling creás los Alarms vos."
+  },
+  {
+    "id": 41, "cat": "Auto Scaling", "subdomain": "Domain 3: Resilient Cloud Solutions",
+    "q": "¿En qué servicios de Application Auto Scaling NO está soportada la política Step Scaling?",
+    "a": "Step Scaling NO está soportada para: Lambda, DynamoDB, Amazon Comprehend, Amazon Keyspaces, Amazon MSK, ElastiCache y Neptune. Para estos servicios usar Target Tracking o Scheduled Scaling."
+  },
+  {
+    "id": 42, "cat": "Auto Scaling", "subdomain": "Domain 5: Incident and Event Response",
+    "q": "¿Cuál es el estado válido del lifecycle hook al terminar instancias en un ASG y qué podés hacer en ese estado?",
+    "a": "Terminating:Wait ✅ → instancia queda suspendida, podés ejecutar lógica (copiar logs, sacar del dominio, crear AMI). Terminating:Pending ❌ → no existe. En Terminating:Wait podés invocar SSM Run Command vía Lambda+CloudWatch Events. El timeout default es 1 hora."
+  },
+  {
+    "id": 43, "cat": "SSM", "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Qué pasos se siguen para registrar servidores on-premise en AWS Systems Manager?",
+    "a": "1) Crear UN SOLO IAM Service Role (no IAM User) con AssumeRole para SSM. 2) Generar activation code + activation ID (un par sirve para múltiples instancias). 3) Instalar SSM Agent y registrar con esas credenciales. Las instancias on-premise aparecen con prefijo 'mi-' (no 'i-')."
+  },
+  {
+    "id": 44, "cat": "SSM", "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Cuál es el documento SSM correcto para parchear tanto Windows como Linux?",
+    "a": "AWS-RunPatchBaseline: soporta Windows y Linux. AWS-ApplyPatchBaseline: solo Windows. Para fleets mixtos → siempre RunPatchBaseline. El flujo recomendado: testear en pre-producción → deployar vía Maintenance Window task."
+  },
+  {
+    "id": 45, "cat": "SSM", "subdomain": "Domain 4: Monitoring and Logging",
+    "q": "¿Cómo detectar instancias EC2 que no están siendo trackeadas por SSM y notificar al equipo?",
+    "a": "SSM no tiene capacidad nativa para detectar instancias no trackeadas. Solución: CloudWatch Event rule con schedule horario → Lambda que compara instancias en EC2 (DescribeInstances) vs instancias registradas en SSM. Si hay diferencia → notifica por SNS. SSM Inventory recolecta metadata de instancias ya trackeadas."
+  },
+  {
+    "id": 46, "cat": "Disaster Recovery", "subdomain": "Domain 3: Resilient Cloud Solutions",
+    "q": "¿Qué estrategia DR usar con RTO de horas y RPO de minutos minimizando costos?",
+    "a": "Pilot Light. Core siempre encendido: RDS con read replica en región DR. Servidores de app configurados pero 'apagados'. Al fallar: Route 53 health checks hacen failover automático, se encienden los servidores y se promueve la read replica a primaria."
+  },
+  {
+    "id": 47, "cat": "Disaster Recovery", "subdomain": "Domain 3: Resilient Cloud Solutions",
+    "q": "¿Cuáles son las 4 estrategias DR en AWS ordenadas de menor a mayor costo?",
+    "a": "Backup & Restore (RTO/RPO en horas, mínimo costo) → Pilot Light (RTO en horas, RPO en minutos, bajo costo) → Warm Standby (RTO/RPO en minutos, costo medio) → Multi-site Active/Active (RTO/RPO ~0, máximo costo)."
+  },
+  {
+    "id": 48, "cat": "OpsWorks", "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "¿Qué lifecycle event de OpsWorks corre en TODAS las instancias del stack cuando una instancia sube o baja?",
+    "a": "configure — se ejecuta en TODAS las instancias cuando cualquier instancia del stack sube o baja. setup solo corre cuando la instancia específica arranca por primera vez. Para actualizar un archivo de configuración con IPs de todos los nodos → configure, no setup."
+  },
+  {
+    "id": 49, "cat": "OpsWorks", "subdomain": "Domain 5: Incident and Event Response",
+    "q": "¿Cómo notificar a Slack cuando OpsWorks reemplaza instancias automáticamente por auto-healing?",
+    "a": "CloudWatch Event rule: source aws.opsworks, initiated_by = 'auto-healing' → Lambda → Slack webhook. 'auto-scaling' es el valor para eventos de scaling, no de healing. CloudWatch Events no tiene integración nativa con Slack — siempre necesitás Lambda."
+  },
+  {
+    "id": 50, "cat": "Kinesis", "subdomain": "Domain 5: Incident and Event Response",
+    "q": "¿Cuál es la métrica clave de KCL que indica lag en el procesamiento de Kinesis y cómo resolver el problema?",
+    "a": "MillisBehindLatest: cuánto tiempo está el consumidor por detrás del último registro. Si es alto → 1) Escalar el ASG de instancias KCL basándose en esa métrica. 2) Aumentar el retention period del stream (default 24h, máx 7 días) para no perder registros mientras se escala."
+  },
+  {
+    "id": 51, "cat": "Kinesis", "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "¿Qué servicio AWS transforma datos EN VUELO antes de que lleguen a S3?",
+    "a": "Kinesis Data Firehose + Lambda transformer. Firehose aplica la transformación Lambda antes de entregar a S3. S3 Event trigger + Lambda procesa DESPUÉS de que el dato ya está en S3 (no cumple el requisito). SQS + Lambda agrega complejidad innecesaria."
+  },
+  {
+    "id": 52, "cat": "EC2", "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Qué tipo de instancia EC2 necesitás para software con licencias basadas en número de CPU sockets?",
+    "a": "Dedicated Hosts. Dan visibilidad y control total de los sockets físicos del servidor. Reserved Instances solo ofrecen descuentos de costo (hasta 72%) pero no control de sockets. Reserved ≠ Dedicated. Para BYOL (Bring Your Own License) por socket → siempre Dedicated Hosts."
+  },
+  {
+    "id": 53, "cat": "CloudFront", "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Qué tipo de certificado SSL necesita un ALB como origen de CloudFront para HTTPS end-to-end?",
+    "a": "CA de terceros importado a ACM, o ACM directo. Self-signed NO funciona en ALB. Certificados en S3 no son válidos. Para CloudFront (viewers): ACM o CA de terceros en ACM/IAM store. Para EC2 como origen (no ALB): solo CA de terceros, no ACM directo."
+  },
+  {
+    "id": 54, "cat": "CloudFront", "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Cuál es la diferencia entre 'HTTPS Only' y 'Match Viewer' en Viewer Protocol Policy de CloudFront?",
+    "a": "HTTPS Only: fuerza siempre HTTPS independientemente del protocolo del viewer. Match Viewer: usa el mismo protocolo que el viewer — si el usuario envía HTTP, CloudFront también usa HTTP al origen. Para forzar encriptación extremo a extremo → HTTPS Only."
+  },
+  {
+    "id": 55, "cat": "CloudFront", "subdomain": "Domain 3: Resilient Cloud Solutions",
+    "q": "¿Qué combinación de servicios resuelve con mínimo costo: alta latencia en autenticación para usuarios globales + errores 504 intermitentes?",
+    "a": "Lambda@Edge: ejecuta la autenticación en el edge location más cercano al usuario, reduciendo latencia. CloudFront origin failover: origin group con primario + secundario, auto-switch al secundario si el primario devuelve 502/503/504. Multi-región con Route53 también funciona pero es más caro."
+  },
+  {
+    "id": 56, "cat": "CloudFront", "subdomain": "Domain 3: Resilient Cloud Solutions",
+    "q": "¿Para qué sirve Lambda@Edge y para qué NO?",
+    "a": "Lambda@Edge: corre código en edge locations de CloudFront para autenticación, redirecciones, personalización de requests/responses, A/B testing. NO es para servir archivos estáticos de S3 (eso lo hace CloudFront directamente). No es para cachear contenido."
+  },
+  {
+    "id": 57, "cat": "X-Ray", "subdomain": "Domain 4: Monitoring and Logging",
+    "q": "Para instrumentar una Lambda function con X-Ray, ¿debés usar una Lambda extension internal o external?",
+    "a": "External extension. El X-Ray daemon corre como proceso separado, por lo que necesita una external extension (que también corre en proceso separado). Una internal extension corre in-process junto con la Lambda y NO puede comunicarse con el X-Ray daemon."
+  },
+  {
+    "id": 58, "cat": "X-Ray", "subdomain": "Domain 4: Monitoring and Logging",
+    "q": "¿Cuál es la diferencia entre X-Ray Insights y CloudWatch Logs Insights?",
+    "a": "X-Ray Insights: analiza TRAZAS (call graphs, latencias, errores en microservicios distribuidos). CloudWatch Logs Insights: analiza LOGS (texto, patrones, queries SQL-like). Son herramientas para tipos de datos distintos y no son intercambiables."
+  },
+  {
+    "id": 59, "cat": "Trusted Advisor", "subdomain": "Domain 4: Monitoring and Logging",
+    "q": "¿Cuáles son las formas válidas de recibir notificaciones frecuentes de cambios en Trusted Advisor?",
+    "a": "1) Lambda diaria → refresca TA via API → publica en SNS. 2) Lambda diaria → TA → CW Logs → Metric Filter → CW Alarm → SNS. 3) EventBridge rule (monitorea cambios en TA checks) → SNS. La notificación built-in de TA es semanal — no sirve para monitoreo frecuente."
+  },
+  {
+    "id": 60, "cat": "Trusted Advisor", "subdomain": "Domain 4: Monitoring and Logging",
+    "q": "Para notificaciones de Trusted Advisor, ¿se puede usar SES en lugar de SNS?",
+    "a": "No. Para alertas/notificaciones de TA → siempre SNS. SES (Simple Email Service) es para emails transaccionales y marketing, no para alertas de monitoreo. EventBridge + SES como target no es el patrón correcto para TA."
+  },
+  {
+    "id": 61, "cat": "DLM", "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Cuál es la forma más simple de automatizar la creación y retención de snapshots de EBS?",
+    "a": "Amazon Data Lifecycle Manager (DLM): define políticas de backup basadas en tags, sin escribir código. Lambda + CloudWatch Events también funciona pero requiere desarrollo y mantenimiento. Para el examen: 'mínimo esfuerzo' o 'least administrative overhead' → DLM."
+  },
+  {
+    "id": 62, "cat": "VPC", "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Cuál es la forma más segura de que EC2 en subred privada acceda a dependencias almacenadas en S3 sin internet?",
+    "a": "VPC Gateway Endpoint para S3: el tráfico nunca sale a internet, es gratuito. Requiere IAM instance profile con permisos S3. NAT Gateway permite outbound a internet (menos seguro, tiene costo). Security group whitelist + borrado manual → alto overhead y propenso a error humano."
+  },
+  {
+    "id": 63, "cat": "S3", "subdomain": "Domain 3: Resilient Cloud Solutions",
+    "q": "¿Cuáles son los dos métodos para verificar integridad MD5 al subir un objeto a S3 con PutObject?",
+    "a": "1) Content-MD5 header en el PUT: enviás el MD5 pre-calculado, S3 verifica y rechaza si no coincide. 2) ETag en la respuesta: S3 devuelve el ETag → comparás con tu MD5 local (válido para objetos no-multipart, sin encriptación SSE-KMS). Trailing checksums los calcula AWS, no podés proveerlos."
+  },
+  {
+    "id": 64, "cat": "S3", "subdomain": "Domain 4: Monitoring and Logging",
+    "q": "¿Cuál es la solución más cost-effective para analizar qué archivos de S3 son los más accedidos?",
+    "a": "S3 server access logging habilitado → logs en S3 → Athena con CREATE EXTERNAL TABLE → SQL queries por objeto. Redshift Spectrum requiere cluster Redshift (caro). OpenSearch + Lambda + Firehose es overkill. CloudWatch S3 metrics solo da conteos globales, no por objeto."
+  },
+  {
+    "id": 65, "cat": "AMI / Seguridad", "subdomain": "Domain 6: Security and Compliance",
+    "q": "Para distribuir un AMI hardened en múltiples cuentas AWS, ¿es mejor copiarlo o compartirlo? ¿Por qué?",
+    "a": "COMPARTIR (no copiar). Ventajas: si querés revocar el AMI viejo, simplemente dejás de compartirlo — todas las cuentas dejan de poder usarlo. Si copiaste, cada cuenta tiene su propia versión y no podés controlar qué AMI usan. Un solo AMI en la cuenta central = fuente de verdad."
+  },
+  {
+    "id": 66, "cat": "AMI / Seguridad", "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Cómo escanear vulnerabilidades CVE en un AMI diariamente sin impactar producción?",
+    "a": "Step Functions (diario via CloudWatch Events): 1) lanza EC2 desde el AMI con tag CheckVulnerabilities:True, 2) ejecuta AWS Inspector assessment apuntando a ese tag, 3) termina la instancia. Inspector NO puede escanear un AMI directamente — necesita una instancia corriendo."
+  },
+  {
+    "id": 67, "cat": "Seguridad", "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Qué servicio AWS detecta y clasifica datos PII en buckets S3 automáticamente con mínimo desarrollo?",
+    "a": "Amazon Macie: usa ML para detectar PII (nombres, addresses, tarjetas, etc.) en S3. Alertar via CloudWatch Events. GuardDuty detecta amenazas de seguridad, no PII en datos. Lambda + SageMaker funcionaría pero requiere esfuerzo significativo de desarrollo."
+  },
+  {
+    "id": 68, "cat": "CI/CD", "subdomain": "Domain 1: SDLC Automation",
+    "q": "¿Cómo configurar Jenkins en AWS para alta disponibilidad, fault tolerance y builds elásticos al mínimo costo?",
+    "a": "Multi-master en múltiples AZs (HA + fault tolerance) + plugin CodeBuild para Jenkins: los builds se ejecutan como CodeBuild jobs en lugar de slaves EC2. Pagan solo lo que usan. EC2 slaves ASG funciona pero es más caro si no están al 100% de utilización."
+  },
+  {
+    "id": 69, "cat": "API Gateway", "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "¿Para qué sirven los mapping templates de API Gateway?",
+    "a": "Transforman el payload de requests/responses entre el cliente y el backend. Permiten agregar campos estáticos, renombrar parámetros, o reformatear datos sin modificar el backend. Ejemplo: agregar 'color: none' a requests de clientes viejos que no envían ese campo. Solo soportan campos estáticos, no default values dinámicos."
+  },
+  {
+    "id": 70, "cat": "API Gateway", "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "¿Cómo soportar clientes viejos de una API v1 que no envían un campo nuevo requerido, sin duplicar el backend Lambda?",
+    "a": "Crear un nuevo stage v2 que apunta al mismo Lambda. En el stage v1, usar un mapping template que agrega el campo estático faltante (ej: 'color: none') antes de enviar a Lambda. Clientes viejos → v1 (con mapping), clientes nuevos → v2 (sin mapping). Una sola Lambda sirve ambos."
+  },
+  {
+    "id": 71, "cat": "Patrones generales", "subdomain": "Domain 5: Incident and Event Response",
+    "q": "¿Cuándo usar Step Functions vs Lambda para orquestar workflows multi-paso?",
+    "a": "Step Functions: múltiples pasos con retry/error handling, auditoría requerida, >15 min, aprobación manual, lógica condicional compleja. Lambda: lógica simple, una sola operación, <15 min. Step Functions es 'overkill' para tareas simples — Lambda es suficiente."
+  },
+  {
+    "id": 72, "cat": "Patrones generales", "subdomain": "Domain 6: Security and Compliance",
+    "q": "Para monitorear compliance de configuración de recursos AWS a lo largo del tiempo, ¿qué usás: Config o EventBridge?",
+    "a": "AWS Config para compliance continuo: mantiene historial de configuración, evalúa compliance en el tiempo, genera dashboards. EventBridge para reaccionar a eventos específicos (algo ocurrió). Un tag eliminado horas después del create → Config lo detecta, EventBridge no."
+  },
+  {
+    "id": 73, "cat": "Patrones generales", "subdomain": "Domain 5: Incident and Event Response",
+    "q": "¿Cuál es el patrón general para enviar notificaciones a Slack desde cualquier servicio AWS?",
+    "a": "Ningún servicio AWS tiene integración nativa con Slack. Siempre: EventBridge (o SNS) → Lambda → Slack webhook. CloudWatch Events/Alarms tampoco tienen target Slack. La Lambda lee el evento y hace HTTP POST al Slack Incoming Webhook URL."
+  },
+  {
+    "id": 74, "cat": "Patrones generales", "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Cuál es la diferencia entre Amazon Macie, GuardDuty e Inspector?",
+    "a": "Macie: detecta PII y datos sensibles en S3 usando ML. GuardDuty: detecta amenazas y comportamiento malicioso (accesos anómalos, malware, reconocimiento). Inspector: vulnerability management, escanea EC2/Lambda/containers para CVEs y exposición de red. Son servicios complementarios, no intercambiables."
+  },
+  {
+    "id": 75, "cat": "Patrones generales", "subdomain": "Domain 1: SDLC Automation",
+    "q": "¿Cuáles son los dos tipos de rollback en CodeDeploy y cómo se activa cada uno?",
+    "a": "1) Por falla de deployment: habilitar 'Roll back when deployment fails' en el deployment group — no necesita Alarm, se activa cuando el deployment mismo reporta fallo (ej: ValidateService hook falla). 2) Por métricas: crear CW Alarm sobre una métrica + asociarlo al deployment group + habilitar 'Roll back when alarm thresholds are met'."
+  },
+  {
+    "id": 101,
+    "cat": "Aurora",
+    "subdomain": "Domain 3: Resilient Cloud Solutions",
+    "q": "Aurora tiene una sola instancia y la app usa el instance endpoint. ¿Qué cambios hacés para minimizar interrupciones durante una ventana de mantenimiento?",
+    "a": "Agregás una reader instance. Cambiás la app para usar el cluster endpoint (writer endpoint) para escrituras — soporta failover automático — y el reader endpoint para lecturas. El instance endpoint no tiene failover."
+  },
+  {
+    "id": 102,
+    "cat": "Aurora",
+    "subdomain": "Domain 3: Resilient Cloud Solutions",
+    "q": "¿Cuál es la diferencia entre cluster endpoint, reader endpoint y custom endpoint en Aurora?",
+    "a": "Cluster endpoint (writer): apunta al primary, soporta escrituras y failover automático. Reader endpoint: distribuye lecturas entre replicas. Custom endpoint: basado en criterios custom (ej: tipo de instancia). Para HA y failover → siempre cluster endpoint, nunca instance endpoint."
+  },
+  {
+    "id": 103,
+    "cat": "Aurora",
+    "subdomain": "Domain 3: Resilient Cloud Solutions",
+    "q": "¿Se puede convertir un Aurora cluster single-AZ a Multi-AZ después de crearlo?",
+    "a": "No. Una vez creado el cluster Aurora, no se puede cambiar su configuración a Multi-AZ. Para HA hay que agregar Aurora Replicas (reader instances) al momento de crear o planificar la arquitectura desde el inicio."
+  },
+  {
+    "id": 104,
+    "cat": "CloudFormation",
+    "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "¿Cómo renombrás un CloudFormation stack sin eliminar los recursos que contiene?",
+    "a": "1) Agregás DeletionPolicy: Retain a todos los recursos del stack original. 2) Eliminás el stack original (los recursos se retienen). 3) Creás un nuevo stack con el nombre deseado e importás los recursos retenidos. 4) Removés el atributo Retain para volver al template original."
+  },
+  {
+    "id": 105,
+    "cat": "CloudFormation",
+    "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "¿Qué hace DeletionPolicy: Snapshot en CloudFormation y cuándo se elimina el recurso?",
+    "a": "Snapshot crea un snapshot del recurso antes de eliminarlo, pero SÍ lo elimina. Si necesitás conservar el recurso sin eliminarlo, usás DeletionPolicy: Retain. Snapshot aplica a recursos que soportan snapshots como AWS::EC2::Volume."
+  },
+  {
+    "id": 106,
+    "cat": "AWS WAF",
+    "subdomain": "Domain 4: Monitoring and Logging",
+    "q": "¿Cómo habilitás el logging de AWS WAF a S3 y qué restricción tienen los nombres de bucket?",
+    "a": "Habilitás logging en el Web ACL y proporcionás el ARN del bucket S3 como destino. El nombre del bucket DEBE empezar con 'aws-waf-logs-'. WAF NO soporta encriptación con KMS keys gestionadas por AWS (solo SSE-S3 o SSE-KMS con customer-managed keys)."
+  },
+  {
+    "id": 107,
+    "cat": "AWS WAF",
+    "subdomain": "Domain 4: Monitoring and Logging",
+    "q": "¿Cuáles son los destinos válidos para WAF logging y qué NO se recomienda al usar Kinesis Firehose?",
+    "a": "Destinos: S3, CloudWatch Logs, Kinesis Data Firehose. Al usar Firehose: AWS recomienda NO usar Kinesis Data Streams como source del Firehose para WAF logging. El nombre del Firehose debe empezar con 'aws-waf-logs-'."
+  },
+  {
+    "id": 108,
+    "cat": "Route 53",
+    "subdomain": "Domain 3: Resilient Cloud Solutions",
+    "q": "¿Cuándo usar latency-based routing vs geolocation routing en Route 53?",
+    "a": "Latency-based: enruta al endpoint con menor latencia para el usuario → ideal para baja latencia global. Geolocation: enruta según la ubicación geográfica del usuario → ideal para localización de contenido, regulaciones por país. Para 'menor latencia posible' → siempre latency-based."
+  },
+  {
+    "id": 109,
+    "cat": "Route 53",
+    "subdomain": "Domain 3: Resilient Cloud Solutions",
+    "q": "¿Qué tipo de routing usar para una app serverless (API Gateway + Lambda + DynamoDB) con usuarios en Europa y Asia-Pacífico?",
+    "a": "Route 53 con latency-based routing + health checks. DynamoDB Global Tables para replicación multi-región. El latency routing elige automáticamente la región con menor latencia para cada usuario."
+  },
+  {
+    "id": 110,
+    "cat": "EventBridge",
+    "subdomain": "Domain 5: Incident and Event Response",
+    "q": "¿Cómo notificar por email cuando un job de AWS Glue falla en su retry (no en el primer intento)?",
+    "a": "EventBridge no filtra suficientemente por 'retry failure' directamente. Flujo correcto: EventBridge (source: aws.glue) → Lambda → Lambda filtra si el evento corresponde a un retry failure → publica en SNS → email."
+  },
+  {
+    "id": 111,
+    "cat": "EKS",
+    "subdomain": "Domain 6: Security and Compliance",
+    "q": "CodeBuild en cuenta A necesita deployar a un EKS cluster en cuenta B. ¿Cómo resolver el 'Unauthorized error'?",
+    "a": "1) En cuenta B: crear IAM role con trust relationship que permite sts:AssumeRole desde cuenta A. 2) Dar al role los permisos necesarios para el EKS cluster. 3) Configurar el aws-auth ConfigMap del cluster EKS para mapear ese role a los permisos de sistema (ej: system:masters). La trust relationship va en el role de DESTINO (cuenta B), no en el origen."
+  },
+  {
+    "id": 112,
+    "cat": "EKS",
+    "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Cuándo usar sts:AssumeRole vs sts:AssumeRoleWithSAML para acceso cross-account?",
+    "a": "sts:AssumeRole: para acceso cross-account IAM estándar (cuenta A asume role en cuenta B). sts:AssumeRoleWithSAML: solo para federación con identity providers SAML (ej: Active Directory federado). Para cross-account CI/CD → siempre sts:AssumeRole."
+  },
+  {
+    "id": 113,
+    "cat": "SSM Session Manager",
+    "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Cómo dar acceso centralizado y auditable a EC2 sin internet, sin bastion host y notificando al equipo de seguridad?",
+    "a": "1) EC2 Image Builder para crear AMI con SSM Agent actualizado. 2) ASG con rol AmazonSSMManagedInstanceCore. 3) SSM Session Manager para login centralizado (no requiere internet). 4) Logging de sesiones a S3. 5) S3 Event Notification → SNS para notificar al equipo de seguridad."
+  },
+  {
+    "id": 114,
+    "cat": "SSM Session Manager",
+    "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Por qué EC2 Instance Connect NO es la solución correcta para EC2 sin internet?",
+    "a": "EC2 Instance Connect requiere conectividad de red pública e IP pública para funcionar. Para instancias sin internet → usar SSM Session Manager (funciona con VPC endpoints, sin IP pública ni acceso a internet)."
+  },
+  {
+    "id": 115,
+    "cat": "S3",
+    "subdomain": "Domain 5: Incident and Event Response",
+    "q": "Si subís un objeto de 100MB como single-part via REST API y luego lo renombrás desde la consola AWS, ¿por qué cambia el checksum?",
+    "a": "La consola AWS usa multipart upload para objetos >16MB en operaciones como rename, copy, cambio de storage class o edición de metadata. Un multipart upload calcula el ETag/checksum como función de los checksums de las partes individuales, no del objeto completo. El comportamiento es esperado, no un error."
+  },
+  {
+    "id": 116,
+    "cat": "CloudFormation",
+    "subdomain": "Domain 5: Incident and Event Response",
+    "q": "Lambda función de CloudFormation custom resource ejecutó exitosamente pero el stack queda en CREATE_IN_PROGRESS. ¿Cuál es la causa?",
+    "a": "La Lambda no envió la respuesta (SUCCESS o FAILED) a la pre-signed S3 URL que CloudFormation proporcionó. CloudFormation espera esa respuesta para completar el stack. Si la Lambda no hace PUT a esa URL, el stack se queda esperando indefinidamente hasta timeout."
+  },
+  {
+    "id": 117,
+    "cat": "CloudFormation",
+    "subdomain": "Domain 5: Incident and Event Response",
+    "q": "¿Cómo actualizar un Lambda function en CloudFormation cuando el código está en S3 con el mismo nombre de archivo?",
+    "a": "CloudFormation no detecta cambios en el contenido de S3, solo en los parámetros S3Bucket, S3Key o S3ObjectVersion. Opciones: 1) Cambiar el nombre del archivo (S3Key) en cada deploy. 2) Habilitar versionado S3 y proveer S3ObjectVersion. 3) Subir a un bucket diferente (S3Bucket)."
+  },
+  {
+    "id": 118,
+    "cat": "CloudFormation",
+    "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "¿Cómo limpiar un bucket S3 antes de que CloudFormation lo elimine durante un stack delete?",
+    "a": "Los buckets S3 con objetos no pueden ser eliminados directamente por CloudFormation. Solución: crear un Custom Resource backed by Lambda que vacíe el bucket antes de que CloudFormation intente eliminarlo. No existe un atributo 'Delete: Force' en CloudFormation."
+  },
+  {
+    "id": 119,
+    "cat": "CloudFormation",
+    "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "¿Cuál es la diferencia entre AutoScalingRollingUpdate y AutoScalingReplacingUpdate en CloudFormation?",
+    "a": "AutoScalingRollingUpdate: actualiza instancias en batches sin crear un nuevo ASG (in-place rolling). AutoScalingReplacingUpdate: crea un nuevo ASG completo y reemplaza el antiguo. Para actualizar instancias gradualmente sin reemplazar el ASG → AutoScalingRollingUpdate. AutoScalingLaunchConfigurationUpdate no existe."
+  },
+  {
+    "id": 120,
+    "cat": "CloudFormation",
+    "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "¿Cómo actualizar el AMI ID en 100+ stacks CloudFormation/Beanstalk de forma automática y sin hardcodear?",
+    "a": "Almacenás el AMI ID en SSM Parameter Store. El CloudFormation template usa un parámetro que referencia SSM. Una Lambda semanal triggered por CloudWatch Events ejecuta UpdateStack en todos los stacks — CloudFormation lee el valor actualizado de SSM automáticamente sin cambiar el template."
+  },
+  {
+    "id": 121,
+    "cat": "CloudFormation",
+    "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "¿Cuál es la mejor práctica para organizar múltiples stacks CloudFormation con dependencias entre ellos?",
+    "a": "Un template separado por componente lógico, deployado independientemente. Usar Outputs y Cross-Stack Exports/Imports para referencias entre stacks. Nested stacks son útiles para configuración reutilizable (ej: ALB) pero no para equipos con timelines independientes. Un master template único es difícil de mantener."
+  },
+  {
+    "id": 122,
+    "cat": "CloudFormation",
+    "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "¿Cuándo usar CloudFormation StackSets vs un stack regular?",
+    "a": "StackSets: deployar la misma infraestructura en múltiples cuentas y/o regiones con una operación. También auto-deploya cuando se agrega una cuenta a una OU de Organizations. Stack regular: una sola cuenta y región. Para compliance multi-cuenta (CloudTrail, Config, IAM roles) → StackSets."
+  },
+  {
+    "id": 123,
+    "cat": "CloudFormation",
+    "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "Un desarrollador sin permisos IAM necesita deployar un stack CloudFormation que crea recursos IAM. ¿Cómo implementarlo con mínimos privilegios?",
+    "a": "Crear un CloudFormation service role con los permisos requeridos. Asociar ese role al stack. Dar al developer solo iam:PassRole para pasar ese role al servicio CloudFormation. El developer no necesita permisos directos en los recursos — CloudFormation actúa con el service role."
+  },
+  {
+    "id": 124,
+    "cat": "AWS Firewall Manager",
+    "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Cómo garantizar que todos los ALBs y API Gateways en una organización de múltiples cuentas tengan WAF Web ACLs aplicados, incluyendo los nuevos?",
+    "a": "AWS Firewall Manager con una política WAF. Prerequisitos: Organizations con all features enabled, cuenta administradora de Firewall Manager designada, AWS Config habilitado en todas las cuentas. Firewall Manager aplica automáticamente el Web ACL a recursos nuevos y existentes."
+  },
+  {
+    "id": 125,
+    "cat": "AWS Firewall Manager",
+    "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Por qué GuardDuty o AWS Config NO son la solución para aplicar WAF Web ACLs proactivamente en múltiples cuentas?",
+    "a": "GuardDuty detecta amenazas (reacción), puede actualizar Web ACLs como respuesta, pero no puede aplicarlos proactivamente. AWS Config monitorea y detecta non-compliance pero necesita Firewall Manager para la gestión centralizada de WAF. Para aplicación proactiva y centralizada → AWS Firewall Manager."
+  },
+  {
+    "id": 126,
+    "cat": "EventBridge",
+    "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Cómo recibir alertas específicas de una sola regla de AWS Config (ej: EBS encriptados) sin recibir todas las notificaciones de Config?",
+    "a": "Config conectado directo a SNS → streama TODAS las notificaciones. Para una regla específica: EventBridge rule filtrando por la regla Config específica y resultado NON_COMPLIANT → SNS topic como target. La SNS filter policy va en la SUSCRIPCIÓN, no en el topic."
+  },
+  {
+    "id": 127,
+    "cat": "IAM",
+    "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Qué es ABAC (Attribute-Based Access Control) en AWS y cuándo es preferible a RBAC?",
+    "a": "ABAC define permisos basados en tags de recursos e identidades IAM. Una sola política permite acceso cuando los tags del principal coinciden con los del recurso. Ventaja sobre RBAC: no hay que actualizar policies cuando se crean nuevos recursos — solo hay que agregar los tags correctos al recurso. Ideal para entornos que crecen rápidamente."
+  },
+  {
+    "id": 128,
+    "cat": "IAM",
+    "subdomain": "Domain 6: Security and Compliance",
+    "q": "Buildspec.yaml tiene hardcodeadas AWS Access Key, Secret Key y password de DB. ¿Cuáles son las 3 correcciones recomendadas?",
+    "a": "1) Credenciales AWS: usar IAM role del CodeBuild project en lugar de env vars con Access Key/Secret Key. 2) DB password: almacenar como SecureString en SSM Parameter Store (NO en Secrets Manager que no tiene SecureString). 3) SSH/SCP a EC2: reemplazar con SSM Run Command (no guardar SSH keys en S3)."
+  },
+  {
+    "id": 129,
+    "cat": "IAM",
+    "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Cuáles son los tipos de Access Control Lists (ACL) en AWS y su limitación clave?",
+    "a": "ACLs de S3: controlan acceso entre cuentas a nivel de objeto/bucket. Limitación clave: NO pueden controlar acceso para principals dentro de la misma cuenta. Para control dentro de la misma cuenta → identity-based policies o resource-based policies."
+  },
+  {
+    "id": 130,
+    "cat": "Secrets Manager",
+    "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Qué servicios de base de datos soporta AWS Secrets Manager para rotación automática nativa?",
+    "a": "Secrets Manager soporta rotación nativa para: Amazon RDS, Amazon DocumentDB, Amazon Redshift. Para otros (ej: Oracle en EC2, credenciales de terceros) → modificar una función Lambda sample de rotación. Importante: Secrets Manager NO tiene concepto de 'SecureString' (eso es SSM Parameter Store)."
+  },
+  {
+    "id": 131,
+    "cat": "Secrets Manager",
+    "subdomain": "Domain 6: Security and Compliance",
+    "q": "Para acceso seguro a RDS desde EC2, ¿dónde guardás las credenciales y cómo accede EC2 a DynamoDB?",
+    "a": "Credenciales RDS → Secrets Manager. EC2 accede con IAM instance role que permite secretsmanager:GetSecretValue para esos secretos específicos. Acceso DynamoDB → NO guardar credenciales, usar permisos DynamoDB directamente en el mismo IAM instance role. DynamoDB no necesita credenciales separadas."
+  },
+  {
+    "id": 132,
+    "cat": "CodeDeploy",
+    "subdomain": "Domain 1: SDLC Automation",
+    "q": "¿Cuáles son los lifecycle hooks disponibles para Lambda deployments en CodeDeploy (appspec.yml)?",
+    "a": "Solo dos hooks disponibles para Lambda: BeforeAllowTraffic (corre ANTES de enviar tráfico a la nueva versión) y AfterAllowTraffic (corre DESPUÉS de que el tráfico ya fue shifteado). BeforeInstall, AfterInstall, ValidateService NO existen para Lambda deployments."
+  },
+  {
+    "id": 133,
+    "cat": "CodeDeploy",
+    "subdomain": "Domain 1: SDLC Automation",
+    "q": "¿Cuándo usar BeforeAllowTraffic vs AfterAllowTraffic hook en CodeDeploy Lambda?",
+    "a": "BeforeAllowTraffic: verificar pre-condiciones antes de que llegue tráfico (ej: esperar que migraciones de DB terminen, validar que dependencias estén listas). AfterAllowTraffic: validar después de que el tráfico ya fluye a la nueva versión. Para 'no enviar tráfico hasta que X esté listo' → siempre BeforeAllowTraffic."
+  },
+  {
+    "id": 134,
+    "cat": "CodeDeploy",
+    "subdomain": "Domain 1: SDLC Automation",
+    "q": "CodeDeploy Blue/Green con EC2: ¿cómo configurar para terminar las instancias originales automáticamente después de 2 horas?",
+    "a": "En el deployment group, configurar Blue/Green settings → Original instances → 'Terminate the original instances in the deployment group' → especificar waiting period de 2 horas. Después de redirigir el tráfico al grupo verde, las instancias originales se desregistran del LB y se terminan al expirar el período de espera. No se puede desregistrar de a una — se desregistran todas a la vez."
+  },
+  {
+    "id": 135,
+    "cat": "CodeDeploy",
+    "subdomain": "Domain 1: SDLC Automation",
+    "q": "¿La opción Canary de CodeDeploy está disponible para deployments en EC2/On-Premises?",
+    "a": "No. Canary, Linear y All-at-once en CodeDeploy deployment configurations son exclusivos para Lambda y ECS. Para EC2/On-Premises solo existe In-place (con batches) y Blue/Green. Para simular canary en EC2 → crear un deployment group separado con pocas instancias de producción y deployar primero ahí."
+  },
+  {
+    "id": 136,
+    "cat": "SAM",
+    "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "¿Qué ventajas tiene AWS SAM sobre CloudFormation puro para deployments de Lambda?",
+    "a": "SAM tiene integración built-in con CodeDeploy para traffic shifting gradual (canary/linear). Permite definir hooks BeforeAllowTraffic/AfterAllowTraffic directamente en el template. Soporta rollback automático si CloudWatch Alarms se activan. CloudFormation change sets no tienen pre/post-traffic test functions."
+  },
+  {
+    "id": 137,
+    "cat": "API Gateway",
+    "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "¿Cómo testear una nueva ruta de API Gateway enviando solo una pequeña fracción del tráfico sin afectar a todos los usuarios?",
+    "a": "Canary deployment en API Gateway: creás un nuevo stage, habilitás canary deployment en ese stage, asignás un porcentaje pequeño de tráfico al canary. El tráfico restante va al stage base. Monitoreás con CloudWatch. Si los metrics están ok → promovés el canary."
+  },
+  {
+    "id": 138,
+    "cat": "API Gateway",
+    "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "¿Cómo hacer que una API v1 existente agregue un campo 'color: none' automáticamente para clientes viejos sin modificar el backend Lambda?",
+    "a": "Usar API Gateway mapping templates en el stage v1. El mapping template transforma el request añadiendo el campo estático antes de enviarlo a Lambda. El stage v2 no tiene mapping — los clientes nuevos envían el campo directamente. Una sola Lambda sirve ambos stages."
+  },
+  {
+    "id": 139,
+    "cat": "CodeBuild",
+    "subdomain": "Domain 1: SDLC Automation",
+    "q": "¿Qué variable de entorno de CodeBuild contiene el nombre del branch siendo buildeado?",
+    "a": "CODEBUILD_SOURCE_VERSION: contiene el branch name para CodeCommit. Es una variable de entorno predefinida disponible en runtime sin configuración extra. No hay que crear una variable BRANCH_NAME custom ni crear proyectos CodeBuild separados por branch."
+  },
+  {
+    "id": 140,
+    "cat": "CodeBuild",
+    "subdomain": "Domain 1: SDLC Automation",
+    "q": "¿Cómo adquirir credenciales de ECR en CodeBuild para hacer docker push?",
+    "a": "Usar IAM roles y CLI helpers (aws ecr get-login-password). NUNCA usar variables de entorno con AWS_ACCESS_KEY_ID y AWS_SECRET_ACCESS_KEY de un IAM user — es una mala práctica de seguridad. El CodeBuild project role debe tener permisos ECR correspondientes."
+  },
+  {
+    "id": 141,
+    "cat": "CodePipeline",
+    "subdomain": "Domain 1: SDLC Automation",
+    "q": "¿Cómo ejecutar múltiples actions de CodePipeline en paralelo (ej: 3 test suites simultáneas)?",
+    "a": "Asignar el mismo valor a la propiedad runOrder de las actions. El runOrder debe ser un entero positivo. Actions con el mismo runOrder se ejecutan en paralelo. El valor default de runOrder es 1. Esta configuración se hace en el CloudFormation template del pipeline."
+  },
+  {
+    "id": 142,
+    "cat": "CodePipeline",
+    "subdomain": "Domain 1: SDLC Automation",
+    "q": "¿Cómo automatizar el SDK export de API Gateway a S3 y la invalidación de CloudFront después de cada deploy?",
+    "a": "Agregar un stage en CodePipeline inmediatamente después del API deployment stage. Ese stage invoca una Lambda function que: 1) descarga el SDK desde API Gateway, 2) lo sube al bucket S3, 3) crea una CloudFront invalidation para el path del SDK. No usar EventBridge scheduled ni S3 API para invalidar CloudFront."
+  },
+  {
+    "id": 143,
+    "cat": "ECS",
+    "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "¿Por qué usar sha256 en lugar del tag 'latest' al especificar imágenes en ECS task definitions?",
+    "a": "Con 'latest', ECS puede no detectar que hay una nueva imagen disponible si el nombre del repositorio no cambia. Con sha256 (ej: 123456.dkr.ecr.region.amazonaws.com/app@sha256:hash), cada versión tiene un identificador único. ECS siempre pullará la imagen correcta. El sha256 también provee visibilidad de qué imagen exacta está corriendo."
+  },
+  {
+    "id": 144,
+    "cat": "ECS",
+    "subdomain": "Domain 4: Monitoring and Logging",
+    "q": "¿Cómo enviar logs de contenedores ECS (classic/EC2) a CloudWatch Logs de la forma más simple?",
+    "a": "Usar el awslogs log driver en la task definition. El EC2 instance (no la task) es quien escribe a CloudWatch, por lo que el IAM role de la instancia EC2 debe tener permisos logs:CreateLogStream y logs:PutLogEvents. No es el IAM task role — es el instance role."
+  },
+  {
+    "id": 145,
+    "cat": "DynamoDB",
+    "subdomain": "Domain 5: Incident and Event Response",
+    "q": "Múltiples Lambda functions leen de DynamoDB Streams y hay throttling. ¿Cuál es la causa y la solución?",
+    "a": "Causa: máximo 2 procesos leyendo del mismo shard simultáneamente. Con 3+ Lambdas → throttling. Solución: fan-out pattern — una Lambda lee el stream y publica a SNS, las demás Lambdas y futuras suscriben al SNS topic. DynamoDB Streams → Lambda → SNS → múltiples Lambdas suscriptoras."
+  },
+  {
+    "id": 146,
+    "cat": "DynamoDB",
+    "subdomain": "Domain 3: Resilient Cloud Solutions",
+    "q": "¿Cuándo usar Aurora Global Database vs DynamoDB Global Tables para una aplicación global?",
+    "a": "Aurora Global Database: app ya usa Aurora/SQL, necesita replicación cross-region con mínimo refactoring. DynamoDB Global Tables: app ya usa DynamoDB/NoSQL, necesita multi-region active-active. Migrar entre Aurora y DynamoDB requiere refactoring total de la capa de datos por diferencia de API (SQL vs NoSQL)."
+  },
+  {
+    "id": 147,
+    "cat": "RDS",
+    "subdomain": "Domain 5: Incident and Event Response",
+    "q": "¿Cómo actualizar la major version de MySQL en RDS (gestionado por CloudFormation) minimizando downtime?",
+    "a": "1) Crear una RDS Read Replica en CloudFormation especificando SourceDBInstanceIdentifier. 2) Actualizar la Read Replica a la nueva versión usando la propiedad EngineVersion (no DBEngineVersion). 3) Promover la Read Replica a primaria. 4) Enrutar tráfico a la nueva instancia. Multi-AZ no elimina el downtime en upgrades de versión mayor."
+  },
+  {
+    "id": 148,
+    "cat": "SSM",
+    "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "¿Cómo parchear instancias desde repositorios de patches internos (custom repositories) usando SSM?",
+    "a": "Crear un Custom Patch Baseline en SSM que especifique los repositorios alternativos como fuentes (hasta 20 versiones de OS Linux). Crear una Maintenance Window con Run Command RunPatchBaseline usando ese custom baseline. El Default Patch Baseline solo usa los repositorios default del OS."
+  },
+  {
+    "id": 149,
+    "cat": "CloudWatch",
+    "subdomain": "Domain 4: Monitoring and Logging",
+    "q": "¿Cuándo usar metric filter vs subscription filter en CloudWatch Logs?",
+    "a": "Metric filter: convierte log data en CloudWatch Metrics numéricas para graficar o crear alarmas. Subscription filter: entrega un feed real-time de log events a Kinesis, Firehose o Lambda para procesamiento. Para alertar por email cuando 'ERROR' aparece >100 veces en 5 min → metric filter → metric → alarm → SNS."
+  },
+  {
+    "id": 150,
+    "cat": "CloudWatch",
+    "subdomain": "Domain 4: Monitoring and Logging",
+    "q": "¿Cuál es la limitación de un CloudWatch Alarm para detectar logins de usuarios en EC2 instances?",
+    "a": "CW Alarm no puede invocar Lambda directamente — necesita SNS como intermediario. La solución eficiente para detectar logins en logs: CW Logs → Metric Filter (detecta patrón de login) → CW Metric → CW Alarm → SNS. Para acción inmediata → CW Logs subscription filter → Lambda."
+  },
+  {
+    "id": 151,
+    "cat": "CloudWatch",
+    "subdomain": "Domain 4: Monitoring and Logging",
+    "q": "¿Cómo recibir notificaciones de un firewall appliance cuando genera un evento de severidad 'Critical'?",
+    "a": "CloudWatch Logs (recibe logs del firewall) → Metric Filter (filtra 'Critical') → CloudWatch Custom Metric → CloudWatch Alarm → SNS topic → suscriptores. No usar Lambda Insights (es para apps serverless), no usar Kinesis Firehose como destino de metric streams (no soportado)."
+  },
+  {
+    "id": 152,
+    "cat": "Elastic Beanstalk",
+    "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "¿Cómo correr un comando de migración de DB en Elastic Beanstalk solo en UNA instancia durante el deploy?",
+    "a": "En .ebextensions usar un bloque container_commands (no commands) con leader_only: true. container_commands corre después de que el app server está configurado y el código está extraído. commands corre en TODAS las instancias y no soporta leader_only. lock_mode no existe."
+  },
+  {
+    "id": 153,
+    "cat": "Elastic Beanstalk",
+    "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "¿Cómo deployar aplicaciones con lenguajes no soportados por Elastic Beanstalk (ej: Rust)?",
+    "a": "Usar Multi-Docker container configuration en Elastic Beanstalk. Cada aplicación se empaqueta como Docker container en ECR. Dockerrun.aws.json describe los containers a deployar. Docker permite definir cualquier runtime, haciendo la solución extensible y estandarizada para todos los lenguajes."
+  },
+  {
+    "id": 154,
+    "cat": "EC2 Auto Scaling",
+    "subdomain": "Domain 5: Incident and Event Response",
+    "q": "ASG tiene instancias que fallan health checks por un problema de DB. ¿Cómo aislar una instancia para troubleshooting por tiempo indefinido?",
+    "a": "Poner la instancia en estado Standby (EnterStandby). Las instancias en Standby siguen siendo parte del ASG pero no reciben tráfico ni son terminadas por health checks. Termination protection no previene que el ASG termine instancias. Lifecycle hooks tienen timeout máximo de 1 hora (insuficiente para troubleshooting indefinido)."
+  },
+  {
+    "id": 155,
+    "cat": "EC2 Auto Scaling",
+    "subdomain": "Domain 3: Resilient Cloud Solutions",
+    "q": "Una app con 2 ALBs + 2 ASGs sufre porque clientes que no respetan DNS siguen yendo al ALB incorrecto. ¿Cuál es la solución más simple?",
+    "a": "Eliminar un ALB y mantener 2 ASGs. Deployar siempre al ASG inactivo y luego hacer swap del target group en el ALB rule. El Route 53 siempre apunta al mismo ALB. Evita el problema de DNS propagation. Cambiar TTL de Route 53 no funciona si los clientes no respetan las respuestas DNS."
+  },
+  {
+    "id": 156,
+    "cat": "Step Functions",
+    "subdomain": "Domain 5: Incident and Event Response",
+    "q": "¿Cuándo usar Step Functions para orquestar un workflow de backup de EBS vs una Lambda function?",
+    "a": "Step Functions es mejor cuando: el workflow tiene múltiples pasos condicionales (ej: si región A falla → intentar región B → notificar), necesita audit trail de cada ejecución, puede durar más de 15 minutos, tiene lógica de retry/error entre pasos. Lambda con todo el código es difícil de debuggear y tiene timeout de 15 min."
+  },
+  {
+    "id": 157,
+    "cat": "Elastic Beanstalk",
+    "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "¿Qué deployment strategy usar en Elastic Beanstalk cuando necesitás: sin cambio de DNS, sin nuevos recursos permanentes y app disponible durante el deploy?",
+    "a": "Rolling deployment. Beneficios: mismo ASG (sin nuevos recursos), mismo DNS/CNAME, app disponible mientras se actualiza en batches. Immutable: crea nuevas instancias. Blue/Green: cambia CNAME. All-at-once: downtime. Rolling with additional batch: crea instancias temporales extra."
+  },
+  {
+    "id": 158,
+    "cat": "CloudTrail",
+    "subdomain": "Domain 4: Monitoring and Logging",
+    "q": "¿Cómo garantizar con 100% de certeza que los logs de CloudTrail no han sido alterados?",
+    "a": "Habilitar CloudTrail log file integrity validation. Usa SHA-256 para hashing y SHA-256 con RSA para firma digital. Verificar con el comando aws cloudtrail validate-logs. Glacier Vault Lock garantiza inmutabilidad del almacenamiento pero no provee la cadena criptográfica que CloudTrail validation ofrece."
+  },
+  {
+    "id": 159,
+    "cat": "AWS Config",
+    "subdomain": "Domain 4: Monitoring and Logging",
+    "q": "¿Cómo trackear compliance de tags en todos los recursos AWS con un dashboard visual?",
+    "a": "AWS Config (regla required-tags) detecta recursos non-compliant → Config streama cambios a SNS → Lambda escribe a S3 → QuickSight dashboard con Athena. AWS Config es la única forma de tener un historial de compliance en el tiempo. CloudTrail solo trackea API calls, no estado actual de recursos."
+  },
+  {
+    "id": 160,
+    "cat": "AWS Config",
+    "subdomain": "Domain 4: Monitoring and Logging",
+    "q": "¿Cuál es la diferencia entre habilitar CloudTrail en todos los accounts vs usar CloudFormation StackSets para enablearlo?",
+    "a": "Habilitar CloudTrail desde la cuenta management via organization trail: centraliza logs en un único lugar. Sin embargo, crear IAM roles en la cuenta management y compartirlos requiere trabajo manual. StackSets: deploya config a todas las cuentas/regiones automáticamente, incluidas cuentas nuevas. Para automation completa → StackSets."
+  },
+  {
+    "id": 161,
+    "cat": "Service Catalog",
+    "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Cómo permitir que developers junior creen recursos AWS aprobados sin poder crear recursos non-compliant?",
+    "a": "AWS Service Catalog: crear productos (templates CloudFormation aprobados con tagging correcto), publicarlos en portfolios, dar a los developers solo permisos de Service Catalog (no permisos directos en otros servicios). Si acceden directo a CloudFormation, pueden crear cualquier recurso. Service Catalog limita al catálogo aprobado."
+  },
+  {
+    "id": 162,
+    "cat": "KMS",
+    "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Cómo compartir un AMI encriptado con KMS entre cuentas para uso en Auto Scaling Groups?",
+    "a": "1) En cuenta A: crear AMI encriptada con customer-managed KMS key (no AWS managed key). Modificar key policy para dar a cuenta B permisos de crear grants. Compartir el AMI. 2) En cuenta B: crear un KMS grant que delega permisos al service-linked role del ASG. No se puede compartir AMIs encriptados con default AWS managed keys."
+  },
+  {
+    "id": 163,
+    "cat": "S3",
+    "subdomain": "Domain 3: Resilient Cloud Solutions",
+    "q": "¿Cómo forzar HTTPS en un bucket S3 y qué condición de bucket policy usás?",
+    "a": "Bucket policy con Deny cuando 'aws:SecureTransport': 'false'. Esto bloquea requests HTTP. Cuando es 'true' → la request es HTTPS. Para encriptación at-rest a alta tasa (10000 ops/seg) → usar SSE-S3 (no SSE-KMS que puede throttlear). Setup Cross-Region Replication para el segundo bucket."
+  },
+  {
+    "id": 164,
+    "cat": "CloudFront",
+    "subdomain": "Domain 3: Resilient Cloud Solutions",
+    "q": "¿Qué solución de mínimo costo resuelve latencia en autenticación global + errores 504 intermitentes en CloudFront?",
+    "a": "Dos soluciones combinadas: 1) Lambda@Edge: ejecuta la función de autenticación en el edge location más cercano al usuario, reduciendo latencia. 2) CloudFront origin failover: origin group con primario y secundario — auto-switch cuando el primario devuelve 5xx. Multi-región con Route53 también funciona pero tiene mayor costo."
+  },
+  {
+    "id": 165,
+    "cat": "CloudFront",
+    "subdomain": "Domain 4: Monitoring and Logging",
+    "q": "¿Cuál es la solución más cost-effective para analizar access patterns de S3 (objetos más vistos)?",
+    "a": "S3 server access logging → logs en bucket S3 → Athena con CREATE EXTERNAL TABLE → SQL queries por objeto. CloudWatch S3 request metrics solo da conteos globales (GetRequests, BytesDownloaded), no por objeto individual. Redshift Spectrum y OpenSearch son más caros e innecesarios para este caso."
+  },
+  {
+    "id": 166,
+    "cat": "VPC",
+    "subdomain": "Domain 6: Security and Compliance",
+    "q": "EC2 en subred privada sin internet necesita descargar dependencias de terceros de forma segura. ¿Cuál es la solución más segura?",
+    "a": "Almacenar dependencias en S3 → VPC Gateway Endpoint para S3 (tráfico no sale a internet, es gratis) → IAM instance profile con permisos S3. NAT Gateway permite outbound a internet (menos seguro, tiene costo). Security group whitelist + eliminación manual → alto overhead operacional y propenso a error humano."
+  },
+  {
+    "id": 167,
+    "cat": "EC2 Image Builder",
+    "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Cuál es el flujo recomendado para crear y mantener un Golden AMI actualizado con SSM Agent?",
+    "a": "EC2 Image Builder: define el pipeline de construcción del AMI (OS base + SSM Agent + patches). El AMI resultante se usa en Launch Templates o ASGs. Para referenciarlo programáticamente entre regiones: almacenar AMI ID en SSM Parameter Store (mismo key name en cada región, diferentes valores). Lambda copia el AMI y actualiza SSM en cada región."
+  },
+  {
+    "id": 168,
+    "cat": "Kinesis",
+    "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "¿Cómo agregar lógica de transformación a logs antes de almacenarlos en S3 sin procesarlos después del hecho?",
+    "a": "Kinesis Data Firehose + Lambda transformer. Firehose aplica la transformación Lambda en vuelo antes de entregar a S3. Alternativas incorrectas: S3 trigger + Lambda (procesa después que ya está en S3), Glue (batch, no real-time), SQS + Lambda (agrega complejidad, no integración nativa con S3 como Firehose)."
+  },
+  {
+    "id": 169,
+    "cat": "DynamoDB",
+    "subdomain": "Domain 2: Configuration Management and IaC",
+    "q": "¿Cuál es la diferencia entre Partition Key (PK) y Sort Key (SK) en DynamoDB y cómo elegirlos para un índice de logs?",
+    "a": "Partition Key: identifica el ítem de forma única (o junto con SK). Sort Key: ordena ítems con el mismo PK. Para índice de logs por instancia y rango de fechas: PK = instance-id (búsqueda exacta), SK = datetime (permite range queries). PK = datetime + SK = instance-id sería incorrecto porque no podés hacer range queries por instancia."
+  },
+  {
+    "id": 170,
+    "cat": "Inspector",
+    "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Qué hace Amazon Inspector y qué NO puede hacer?",
+    "a": "Inspector: vulnerability management, escanea EC2, Lambda functions y containers en ECR para CVEs y exposición de red no intencionada. NO puede: escanear un AMI directamente (necesita una instancia EC2 corriendo), trackear software instalado (para eso usar SSM Inventory), detectar amenazas (eso es GuardDuty)."
+  },
+  {
+    "id": 171,
+    "cat": "CodePipeline",
+    "subdomain": "Domain 1: SDLC Automation",
+    "q": "¿Cómo reaccionar a pushes en CodeCommit para disparar una función Lambda de análisis de código?",
+    "a": "CloudWatch Event rule que reacciona a pushes en el repositorio CodeCommit → Lambda como target. La Lambda obtiene el código de CodeCommit, lo zipea y lo envía a la API de terceros. No usar S3 bucket como target de CW Event (no soportado como target), no usar scheduled polling."
+  },
+  {
+    "id": 172,
+    "cat": "CodePipeline",
+    "subdomain": "Domain 1: SDLC Automation",
+    "q": "¿Cómo validar Pull Requests de CodeCommit con CodeBuild automáticamente?",
+    "a": "1ra regla CW Events: reacciona a creación/actualización de PRs en CodeCommit → target CodeBuild (no Lambda, CodeBuild puede ser target directo). 2da regla CW Events: reacciona a eventos de success/failure de CodeBuild → target Lambda que actualiza el PR con el resultado. No usar Lambda para esperar a CodeBuild (timeout de 15 min)."
+  },
+  {
+    "id": 173,
+    "cat": "SSM",
+    "subdomain": "Domain 5: Incident and Event Response",
+    "q": "¿Cuál es la diferencia entre SSM Automation y SSM Run Command para casos de uso operacionales?",
+    "a": "Run Command: ejecuta comandos/scripts en instancias (configuración one-time, gestión remota). Automation: workflows multi-paso para gestionar recursos AWS (crear AMIs, parchear, remediar). Para tareas administrativas simples en instancias → Run Command. Para orquestar múltiples pasos con lógica → Automation. Para troubleshooting puntual → Run Command."
+  },
+  {
+    "id": 174,
+    "cat": "Organizations",
+    "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Cómo garantizar que todas las cuentas nuevas creadas en Organizations tengan CloudTrail habilitado e IAM roles estándar automáticamente?",
+    "a": "CloudFormation StackSets con service-managed permissions: habilitar data sharing entre CFN y Organizations, deployar los StackSets en la management account. Configurar 'automatic deployment' para que cuando se crea una cuenta nueva en la OU, el stack se deploya automáticamente. También elimina el stack cuando una cuenta sale de la organización."
+  },
+  {
+    "id": 175,
+    "cat": "Organizations",
+    "subdomain": "Domain 6: Security and Compliance",
+    "q": "¿Cuál es la limitación de SCPs (Service Control Policies) en Organizations?",
+    "a": "SCPs NO otorgan permisos — solo los restringen. Definen el máximo de permisos que una cuenta puede tener. Para que un principal tenga acceso, además del SCP que lo permita, debe existir una IAM policy que lo otorgue explícitamente. SCPs solos no son suficientes para dar acceso a recursos."
+  },
+  {
+    "id": 176,
+    "cat": "ALB",
+    "subdomain": "Domain 3: Resilient Cloud Solutions",
+    "q": "¿Cómo mejorar los health checks de ALB cuando la app depende de una base de datos?",
+    "a": "Enhancear el endpoint de health check de la app para que incluya conectividad a la DB y devuelva un HTTP status code que refleje ese estado (ej: 503 si no puede conectar a DB). ALB usa solo el HTTP status code — no parsea el payload del response. Elastic Beanstalk Health Metrics no trackean errores de archivos de log."
+  },
+  {
+    "id": 177,
+    "cat": "ALB",
+    "subdomain": "Domain 3: Resilient Cloud Solutions",
+    "q": "¿Dónde se habilitan los access logs del ALB y qué información contienen?",
+    "a": "Access logs se habilitan a nivel del ALB (no del target group). Se almacenan en S3. Contienen: tiempo del request, IP del cliente, latencias, paths, server responses. Están comprimidos. Para analizar → Athena. Si se habilita en el target group → no existe esa opción."
+  }
+]
